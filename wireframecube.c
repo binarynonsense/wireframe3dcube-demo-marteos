@@ -21,7 +21,7 @@
 -- See COPYING file for more info about the license                        --
 --                                                                         --
 -----------------------------------------------------------------------------
--- last update:                                                            --
+-- last update: 28 Aug 2014                                                --
 ---------------------------------------------------------------------------*/
 
 #include "vga.h"
@@ -44,19 +44,18 @@ double const PERIOD = 1.0/30.0;
 
 int ret;  
 int gameOver; 
-struct timespec period_ts; 
 unsigned char *buffer; // virtual canvas
 
+double TimespecDiff(struct timespec start, struct timespec end);
 
-
-void init();
-void blit();
-void cleanUp();
+void Init();
+void Blit();
+void CleanUp();
 
 float angle, x[8], y[8], z[8], rx[8], ry[8], rz[8], scrx[8], scry[8];
 
 
-void line (unsigned char* buf, float x1, float y1, float x2, float y2)
+void DrawLine (unsigned char* buf, float x1, float y1, float x2, float y2)
 {  
   double hl=fabs(x2-x1), vl=fabs(y2-y1), length=(hl>vl)?hl:vl;
     float deltax=(x2-x1)/(float)length, deltay=(y2-y1)/(float)length;
@@ -69,7 +68,7 @@ void line (unsigned char* buf, float x1, float y1, float x2, float y2)
     }
 } 
 
- void render (unsigned char* buffer, float xa, float ya, float za)
+ void DrawCube (unsigned char* buffer, float xa, float ya, float za)
  {
     float mat[4][4]; // Determine rotation matrix
     
@@ -93,47 +92,58 @@ void line (unsigned char* buf, float x1, float y1, float x2, float y2)
     
     for (i=0; i<4; i++) // Actual drawing
     {  
-      line (buffer, scrx[i], scry[i], scrx[i+4], scry[i+4]);
-      line (buffer, scrx[i], scry[i], scrx[(i+1)%4], scry[(i+1)%4]);
-      line (buffer, scrx[i+4], scry[i+4], scrx[((i+1)%4)+4], scry[((i+1)%4)+4]);
+      DrawLine (buffer, scrx[i], scry[i], scrx[i+4], scry[i+4]);
+      DrawLine (buffer, scrx[i], scry[i], scrx[(i+1)%4], scry[(i+1)%4]);
+      DrawLine (buffer, scrx[i+4], scry[i+4], scrx[((i+1)%4)+4], scry[((i+1)%4)+4]);
     }
 }
 
 int main()
 { 
     int i;
-    for (i=0; i<8; i++) // Define the cube
+    for(i=0; i<8; i++) // Define the cube
     { 
       x[i]=(float)(50-100*(((i+1)/2)%2));
       y[i]=(float)(50-100*((i/2)%2)), z[i]=(float)(50-100*((i/4)%2));
     }
     
-    init();    
+    Init();  
+    
+    double elapsedTime = 0;
+    struct timespec timeLastFrame, timeCurrentFrame;
+    
+    clock_gettime(CLOCK_REALTIME, &timeLastFrame);
    
     while(!gameOver)
     {  
-        render (buffer, angle, 360-angle, 0);
-        angle+=5.0f; if (angle==360) angle=0;
+        clock_gettime(CLOCK_REALTIME, &timeCurrentFrame);
+        elapsedTime = TimespecDiff(timeLastFrame, timeCurrentFrame);
+        // UPDATE FRAME /////////////////////////////////////////////
+
+        //printf("time elapsed: %8.9f \n", elapsedTime);
+        DrawCube (buffer, angle, 360-angle, 0);
         
-        blit();
+        angle += 90.0f * elapsedTime; 
+        
+        if (angle >= 360) 
+            angle = 0;
+        
+        Blit();
         
         memset(buffer, 0, VGA_WIDTH*VGA_HEIGHT);
-        
-        nanosleep(&period_ts, NULL);
+
+        // END UPDATE FRAME /////////////////////////////////////////    
+        timeLastFrame = timeCurrentFrame;        
     }  
     
-    cleanUp();
+    CleanUp();
     return 0;
 
 }//main
 
-void init()
+void Init()
 {    
-    ret = init_vga(G320x200x256, VGA, PCI_DEVICE_ID_S3_TRIO64V2);            
-    
-    //double_to_timespec(PERIOD,&period_ts);
-    //period_ts=double_to_timespec(PERIOD);
-    double_to_timespec(PERIOD,&period_ts);
+    ret = init_vga (G320x200x256, VGA, PCI_DEVICE_ID_S3_TRIO64V2);            
     
     vga_setpalette(0, 0, 0, 0);//black
     vga_setpalette(1, 255, 255, 255);//white 
@@ -141,7 +151,7 @@ void init()
    
     buffer = (unsigned char *)malloc(VGA_WIDTH*VGA_HEIGHT);//virtual canvas
     memset(buffer, 0, VGA_WIDTH*VGA_HEIGHT);    
-    blit();
+    Blit();
             
     reset_blocking_mode ();
     set_raw_mode();
@@ -149,15 +159,22 @@ void init()
     gameOver = 0;
 }
 
-void blit()
+void Blit()
 {
     //vga_waitretrace();
     vga_drawscansegment(buffer,0,0,VGA_WIDTH*VGA_HEIGHT); 
 }
 
-void cleanUp()
+void CleanUp()
 {
     free(buffer);
+}
+
+double TimespecDiff(struct timespec start, struct timespec end)
+{
+  double startSecs = start.tv_sec + start.tv_nsec / 1000000000.0;
+  double endSecs = end.tv_sec + end.tv_nsec / 1000000000.0;
+  return endSecs - startSecs;
 }
 
 
