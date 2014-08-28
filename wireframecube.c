@@ -109,7 +109,7 @@ int main()
     
     Init();  
     
-    double elapsedTime = 0;
+    double deltaTime = 0;
     struct timespec timeLastFrame, timeCurrentFrame;
     
     clock_gettime(CLOCK_REALTIME, &timeLastFrame);
@@ -117,13 +117,13 @@ int main()
     while(!gameOver)
     {  
         clock_gettime(CLOCK_REALTIME, &timeCurrentFrame);
-        elapsedTime = TimespecDiff(timeLastFrame, timeCurrentFrame);
+        deltaTime = TimespecDiff(timeLastFrame, timeCurrentFrame);
         // UPDATE FRAME /////////////////////////////////////////////
 
-        //printf("time elapsed: %8.9f \n", elapsedTime);
+        //printf("time elapsed: %8.9f \n", deltaTime);
         DrawCube (buffer, angle, 360-angle, 0);
         
-        angle += 90.0f * elapsedTime; 
+        angle += 90.0f * deltaTime; 
         
         if (angle >= 360) 
             angle = 0;
